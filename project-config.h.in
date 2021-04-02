@@ -1,0 +1,2 @@
+#define VERSION_MAJOR @tcp_compression_service_VERSION_MAJOR@
+#define VERSION_MAJOR @tcp_compression_service_VERSION_MINOR@
