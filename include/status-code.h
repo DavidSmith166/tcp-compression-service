@@ -1,5 +1,5 @@
-#ifndef status_code_def
-#define status_code_def
+#ifndef STATUS_CODE_H
+#define STATUS_CODE_H
 
 #include <cstdint>
 
@@ -10,4 +10,4 @@ enum class Status_Code: uint16_t {
     UNSUPPORTED_TYPE = 3,
 };
 
-#endif // status_code_def
+#endif // STATUS_CODE_H

@@ -1,5 +1,5 @@
-#ifndef requests_def
-#define requests_def
+#ifndef REQUESTS_H
+#define REQUESTS_H
 
 #include <cstdint>
 
@@ -11,4 +11,4 @@ enum class Request_Code: uint16_t {
 };
 
 
-#endif // requests_def
+#endif // REQUESTS_H

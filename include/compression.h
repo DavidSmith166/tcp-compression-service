@@ -1,8 +1,8 @@
-#ifndef compression_def
-#define compression_def
+#ifndef COMPRESSION_H
+#define COMPRESSION_H
 
 namespace Compression {
     
 }
 
-#endif // compression_def
+#endif // COMPRESSION_H

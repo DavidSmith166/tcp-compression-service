@@ -1,5 +1,5 @@
-#ifndef message_def
-#define message_def
+#ifndef MESSAGE_H
+#define MESSAGE_H
 
 #include <cstdint>
 #include <vector>
@@ -15,4 +15,4 @@ struct Message {
     std::vector<uint8_t> payload;
 };
 
-#endif // message_def
+#endif // MESSAGE_H
