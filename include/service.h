@@ -19,6 +19,9 @@
 #define PRINT(x) std::cout << #x << std::endl
 
 struct Job {
+
+    Job() = default;
+
     Message msg;
     RAII_FD clientfd;
 };
@@ -29,7 +32,7 @@ namespace Service_Constants
     static constexpr std::size_t DEFAULT_NUM_WORKERS = 4;
     static constexpr std::size_t DEFAULT_BUFFER_SIZE = 32;
 
-    static constexpr int DEFAULT_PORT = 8000;
+    static constexpr uint16_t DEFAULT_PORT = 8000;
     static constexpr int DEFAULT_BACKLOG_SIZE = 10;
 
     static constexpr int MAX_EPOLL_EVENTS = 10;
@@ -45,7 +48,7 @@ class Service {
     public:
 
         Service();
-        Service(size_t num_listeners, size_t num_workers,  int port, int backlog_size);
+        Service(size_t num_listeners, size_t num_workers,  uint16_t port, int backlog_size);
 
         void start();
 
@@ -85,7 +88,7 @@ class Service {
         RAII_FD epollfd;
         struct sockaddr_in addr;
 
-        int port;
+        uint16_t port;
         int backlog_size;
         std::size_t num_listeners;
         std::size_t num_workers;

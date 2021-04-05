@@ -11,7 +11,10 @@ void Service::ping(const Job& job) {
     h.code = static_cast<uint16_t>(Status_Code::OK);
     h.set_net_order();
 
+    PRINT("Ping response");
+
     Network_Order_Message net_msg(h);
+    assert(job.clientfd.get() != -1);
     this->respond(job.clientfd.get(), net_msg);
 }
 
@@ -78,11 +81,14 @@ void Service::process_requests() {
     while (true) {
 
         std::unique_lock<std::mutex> lock(this->requests_lock);
-        this->waiting_workers.wait(lock, [this](){ return this->requests.empty(); });
+        this->waiting_workers.wait(lock, [this](){ return this->requests.size(); });
 
         Job job = std::move(this->requests.front());
         this->requests.pop();
         this->requests_lock.unlock();
+
+        PRINT("Worker recieved job");
+        std::cout << "Job " << job.clientfd.get() << std::endl;
 
         assert(job.clientfd.get() != -1);
 

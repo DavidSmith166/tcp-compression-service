@@ -21,6 +21,7 @@ void add_client(int epollfd, int serverfd,
 
 	open_fds->emplace(new_clientfd, new_clientfd);
 
+	epoll_ev->events = EPOLLIN | EPOLLEXCLUSIVE;
 	epoll_ev->data.fd = new_clientfd;
 	if (epoll_ctl(epollfd, EPOLL_CTL_ADD, new_clientfd, epoll_ev)) {
 		throw std::runtime_error("Epoll CTL add new client failed");
@@ -38,8 +39,10 @@ std::optional<Message> Service::create_message(int clientfd, std::array<uint8_t,
 	h.payload_length = *reinterpret_cast<uint16_t*>(read_head);
 	read_head += sizeof(h.payload_length);
 	h.code = *reinterpret_cast<uint16_t*>(read_head);
-
 	h.set_host_order();
+
+	// TODO
+	std::cout << h.magic_number << " " << h.payload_length << " " << h.code << std::endl;
 
 	if (h.magic_number != Message_Constants::MAGIC_NUMBER) {
 		this->respond_with_error(clientfd, Status_Code::UNKNOWN_ERROR);
@@ -52,6 +55,8 @@ std::optional<Message> Service::create_message(int clientfd, std::array<uint8_t,
 	}
 
 	Message msg(h);
+
+	PRINT("Constructed message");
 
 	auto start = recv_buffer->begin() + Message_Constants::HEADER_SIZE;
 	auto end = start + h.payload_length;
@@ -67,11 +72,15 @@ void Service::publish_message(RAII_FD clientfd, std::array<uint8_t, Service_Cons
 		return;
 	}
 
+	// TODO
+	std::cout << "Pushed " << clientfd.get() << std::endl;
+
 	Job job = {std::move(msg_opt.value()), std::move(clientfd)};
 
 	std::lock_guard<std::mutex> guard(this->requests_lock);
-	this->requests.push(std::move(job));
+	this->requests.emplace(std::move(job));
 	this->waiting_workers.notify_one();
+	PRINT("Pushed job to queue");
 }
 
 void Service::handle_client(int epollfd, int clientfd, 
@@ -109,6 +118,8 @@ void Service::handle_client(int epollfd, int clientfd,
 		}
 
 	}
+
+	PRINT("Recieved message");
 
 	this->publish_message(std::move(open_fds->operator[](clientfd)), recv_buffer);
 	open_fds->erase(clientfd);

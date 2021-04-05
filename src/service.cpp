@@ -9,7 +9,7 @@ Service::Service() : Service(Service_Constants::DEFAULT_NUM_LISTENERS,
 							 Service_Constants::DEFAULT_PORT,
 							 Service_Constants::DEFAULT_BACKLOG_SIZE) {}
 
-Service::Service(std::size_t num_listeners, std::size_t num_workers, int port, int backlog_size):
+Service::Service(std::size_t num_listeners, std::size_t num_workers, uint16_t port, int backlog_size):
 	port(port), backlog_size(backlog_size), num_listeners(num_listeners), num_workers(num_workers) {
 
 	auto [serverfd_temp, addr] = this->create_server_socket();
@@ -66,12 +66,12 @@ std::pair<RAII_FD, struct sockaddr_in> Service::create_server_socket() {
 	struct sockaddr_in addr;
 	addr.sin_family = AF_INET;
 	addr.sin_addr.s_addr = INADDR_ANY;
-	addr.sin_port = htonl(this->port);
+	addr.sin_port = htons(this->port);
 
-	int REUSE_TRUE = 1;
-    if (setsockopt(serverfd.get(), SOL_SOCKET, SO_REUSEPORT, &REUSE_TRUE, sizeof(REUSE_TRUE)) == -1) {
-		throw std::runtime_error("Sockopt failed");
-	}
+	// int REUSE_TRUE = 1;
+    // if (setsockopt(serverfd.get(), SOL_SOCKET, SO_REUSEPORT, &REUSE_TRUE, sizeof(REUSE_TRUE)) == -1) {
+	// 	throw std::runtime_error("Sockopt failed");
+	// }
 
     if (bind(serverfd.get(), reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == -1) {
 		throw std::runtime_error("Bind failed");
@@ -100,7 +100,7 @@ void Service::respond_with_error(int clientfd, Status_Code error_code) {
 }
 
 void Service::respond(int clientfd, const Network_Order_Message& msg) {
-	PRINT("Responding to client");
+	std::cout << "Responding to client " << clientfd << std::endl;
 
 	assert(clientfd != -1);
 
@@ -116,11 +116,22 @@ void Service::respond(int clientfd, const Network_Order_Message& msg) {
 
 	memcpy(write_head, &msg.header.code, sizeof(msg.header.code));
 
+	for (const uint8_t byte: write_buffer)
+		fprintf(stderr, "%#02x ", byte);
+	fprintf(stderr, "\n");
+
 	ssize_t bytes_sent = 0;
-	if ((bytes_sent = write(clientfd, write_buffer.data(), Message_Constants::HEADER_SIZE)) != -1) {
+	while ((bytes_sent = write(clientfd, write_buffer.data() + bytes_sent, sizeof(write_buffer) - bytes_sent)) != -1) {
 		this->stats_lock.lock();
 		this->total_bytes_sent += bytes_sent;
 		this->stats_lock.unlock();
+
+		if (bytes_sent == Message_Constants::HEADER_SIZE) {
+			break;
+		}
 	}
 
+	if (bytes_sent < sizeof(write_buffer)) {
+		PRINT("Failed to write");
+	}
 }
