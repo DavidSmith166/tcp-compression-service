@@ -6,6 +6,8 @@
 
 struct RAII_FD {
 
+    RAII_FD() = default;
+
 	explicit RAII_FD(int fd)
 		: fd(fd) {}
 
@@ -23,6 +25,8 @@ struct RAII_FD {
 		    close(fd);
         }
 	}
+
+    int get() { return this->fd; }
 
 	int fd = -1;
 };

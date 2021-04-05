@@ -2,18 +2,22 @@
 #define SERVICE_H
 
 #include <cstdint>
-#include <map>
+#include <condition_variable>
 #include <message.h> 
+#include <mutex>
+#include <netinet/in.h>
 #include <queue>
 #include <raii_fd.h>
+#include <status-code.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 struct Job {
-    size_t buffer_slot;
-    RAII_FD socket;
+    Message msg;
+    RAII_FD clientfd;
 };
 
 namespace Service_Constants
@@ -27,7 +31,7 @@ namespace Service_Constants
 
     static constexpr int MAX_EPOLL_EVENTS = 10;
 
-    static constexpr std::size_t RECV_BUFFER_SIZE = sizeof(Message);
+    static constexpr std::size_t RECV_BUFFER_SIZE = Message_Constants::MESSAGE_SIZE;
 } // namespace Service_Constants
 
 
@@ -42,27 +46,28 @@ class Service {
         void accept_requests();
         void process_requests();
 
-        std::pair<int, struct sockaddr_in> create_server_socket();
+        std::pair<RAII_FD, struct sockaddr_in> create_server_socket();
 
-        bool handle_client(int epollfd, int clientfd, 
-                           std::map<int, std::vector<uint8_t>>* cache, 
-						   std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* buffer,
-						   std::map<int, RAII_FD>* open_fds);
-
-        void add_client(int epollfd, int serverfd, 
-                        const sockaddr_in& addr, epoll_event* epoll_ev, 
-						std::map<int, RAII_FD>* open_fds);
-
-        std::vector<Message> message_buffer;
-        std::vector<std::size_t> free_slots;
+        std::optional<Message> create_message(int clientfd, std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* recv_buffer);
+        void publish_message(RAII_FD clientfd, std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* recv_buffer);
+        void respond_with_error(int clientfd, Status_Code error_code);
+        void handle_client(int epollfd, int clientfd,  
+						   std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* recv_buffer,
+						   std::unordered_map<int, RAII_FD>* open_fds);
 
         std::vector<std::thread> listeners;
         std::vector<std::thread> workers;
         std::queue<Job> requests;
+        std::mutex requests_lock;
+        std::condition_variable waiting_workers;
 
         uint32_t total_bytes_recieved;
         uint32_t total_bytes_sent;
         uint32_t compression_ratio;
+
+        RAII_FD serverfd;
+        RAII_FD epollfd;
+        struct sockaddr_in addr;
 
         int port;
         int backlog_size;

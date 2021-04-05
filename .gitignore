@@ -16,3 +16,6 @@ _deps
 
 # General
 build
+
+# Static Analysis Tools
+infer*
