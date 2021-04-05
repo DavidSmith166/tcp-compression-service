@@ -14,6 +14,9 @@
 #include <thread>
 #include <unordered_map>
 #include <vector>
+#include <iostream>
+
+#define PRINT(x) std::cout << #x << std::endl
 
 struct Job {
     Message msg;
@@ -32,28 +35,40 @@ namespace Service_Constants
     static constexpr int MAX_EPOLL_EVENTS = 10;
 
     static constexpr std::size_t RECV_BUFFER_SIZE = Message_Constants::MESSAGE_SIZE;
+
+    static constexpr uint16_t GET_STATS_PAYLOAD_SIZE = 2 * sizeof(uint32_t) + 1;
 } // namespace Service_Constants
 
 
 class Service {
-    public:
-        Service();
 
+    public:
+
+        Service();
         Service(size_t num_listeners, size_t num_workers,  int port, int backlog_size);
+
+        void start();
 
     private:
 
-        void accept_requests();
-        void process_requests();
-
         std::pair<RAII_FD, struct sockaddr_in> create_server_socket();
+        void respond_with_error(int clientfd, Status_Code error_code);
+        void respond(int clientfd, const Network_Order_Message& msg);
+
+        void accept_requests();
 
         std::optional<Message> create_message(int clientfd, std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* recv_buffer);
         void publish_message(RAII_FD clientfd, std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* recv_buffer);
-        void respond_with_error(int clientfd, Status_Code error_code);
         void handle_client(int epollfd, int clientfd,  
 						   std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* recv_buffer,
 						   std::unordered_map<int, RAII_FD>* open_fds);
+
+        void process_requests();
+
+        void ping(const Job& job);
+        void get_stats(const Job& job);
+        void reset_stats(const Job& job);
+        void compress(const Job& job);
 
         std::vector<std::thread> listeners;
         std::vector<std::thread> workers;
@@ -63,7 +78,8 @@ class Service {
 
         uint32_t total_bytes_recieved;
         uint32_t total_bytes_sent;
-        uint32_t compression_ratio;
+        uint8_t compression_ratio;
+        std::mutex stats_lock;
 
         RAII_FD serverfd;
         RAII_FD epollfd;
@@ -71,6 +87,8 @@ class Service {
 
         int port;
         int backlog_size;
+        std::size_t num_listeners;
+        std::size_t num_workers;
 };
 
 #endif // SERVICE_H

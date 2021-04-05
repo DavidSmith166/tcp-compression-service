@@ -26,7 +26,7 @@ struct RAII_FD {
         }
 	}
 
-    int get() { return this->fd; }
+    int get() const { return this->fd; }
 
 	int fd = -1;
 };

@@ -4,9 +4,10 @@ project(tcp-compression-service VERSION 0.0)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
+set(CMAKE_BUILD_TYPE DEBUG)
 set(CMAKE_COMPILE_WARNING_MODE HIGH)
 set(CMAKE_COMPILE_WARNING_AS_ERROR TRUE)
-set(CMAKE_EXPORT_COMPILE_COMMANDS=TRUE)
+set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 
 set(CMAKE_CXX_CLANG_TIDY
     clang-tidy;
@@ -35,6 +36,7 @@ add_executable(tcp-compression-service
                src/service.cpp
                src/listener.cpp
                src/worker.cpp
+               src/compression.cpp
               )
 
 target_include_directories(tcp-compression-service PRIVATE
