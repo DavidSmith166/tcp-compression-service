@@ -60,11 +60,15 @@ class Service {
 
         void accept_requests();
 
-        std::optional<Message> create_message(int clientfd, std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* recv_buffer);
+        bool Service::recv_bytes(int clientfd, 
+                                 std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* recv_buffer,
+                                 std::size_t n);
+        std::optional<Header> Service::create_header(int clientfd, std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* recv_buffer);
+        std::optional<Message> Service::create_message(int clientfd, const Header& h,std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* recv_buffer);
+
         void publish_message(RAII_FD clientfd, std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* recv_buffer);
-        void handle_client(int epollfd, int clientfd,  
-						   std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* recv_buffer,
-						   std::unordered_map<int, RAII_FD>* open_fds);
+        void handle_client(int epollfd, RAII_FD clientfd,  
+						   std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* recv_buffer);
 
         void process_requests();
 

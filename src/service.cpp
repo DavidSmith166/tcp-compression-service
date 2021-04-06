@@ -121,8 +121,9 @@ void Service::respond(int clientfd, const Network_Order_Message& msg) {
 	fprintf(stderr, "\n");
 
 	ssize_t bytes_sent = 0;
-	while ((bytes_sent = write(clientfd, write_buffer.data() + bytes_sent, sizeof(write_buffer) - bytes_sent)) != -1) {
+	while ((bytes_sent = send(clientfd, write_buffer.data() + bytes_sent, sizeof(write_buffer) - bytes_sent, 0)) != -1) {
 		this->stats_lock.lock();
+		std::cout << "bytes sent " << bytes_sent << std::endl;
 		this->total_bytes_sent += bytes_sent;
 		this->stats_lock.unlock();
 
