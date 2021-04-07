@@ -1,13 +1,17 @@
 #include <cctype>
+#include <cstring>
 #include <compression.h>
 #include <helpers.h>
 
-void write_char(char c, std::size_t count, std::vector<char>* output) {
+void write_char(char c, std::size_t count, Compression::Buffer* count_buffer, std::vector<char>* output) {
 
-    if (count > 2) {
+    if (count > 2) {        
 
-        std::size_t nbo_count = htonl(count);
-        Helpers::add_bytes_to_payload(&nbo_count, output);
+        sprintf(count_buffer->data(), "%lu", count);
+        for (std::size_t i = 0; i < strlen(count_buffer->data()); i++) {
+            output->push_back(count_buffer->operator[](i));
+        }
+
         output->push_back(c);
 
     } else {
@@ -26,10 +30,14 @@ std::optional<std::vector<char>> Compression::compress(const std::vector<char>& 
     }
 
     std::vector<char> output;
-    char current_char = input[0];
+    Compression::Buffer count_buffer;
+
     std::size_t count = 0;
+    char current_char = input[0];
     
     for (const char c: input) {
+
+        printf("%c ", c);
 
         if (!islower(c)) {
             return std::nullopt;
@@ -38,12 +46,14 @@ std::optional<std::vector<char>> Compression::compress(const std::vector<char>& 
         if (c == current_char) {
             ++count;
         } else {
-            write_char(current_char, count, &output);
+            write_char(current_char, count, &count_buffer, &output);
+            count = 1;
+            current_char = c;
         }
 
     } 
 
-    write_char(current_char, count, &output);
+    write_char(current_char, count, &count_buffer, &output);
 
     return output;
 }

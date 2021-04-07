@@ -20,7 +20,7 @@
 #   define IF_VERBOSE(...) __VA_ARGS__
 #else
 #   define IF_VERBOSE(...)
-#endif
+#endif // VERBOSE
 
 struct Job {
 
@@ -46,8 +46,7 @@ namespace Service_Constants
 
     static constexpr uint16_t GET_STATS_PAYLOAD_SIZE = 2 * sizeof(uint32_t) + 1;
 
-    using Header_Buffer = std::array<uint8_t, Message_Constants::HEADER_SIZE>;
-    using Payload_Buffer = std::array<uint8_t, Message_Constants::PAYLOAD_SIZE>;
+    using Buffer = std::array<uint8_t, Message_Constants::PAYLOAD_SIZE>;
     
 } // namespace Service_Constants
 
@@ -63,24 +62,37 @@ class Service {
 
     private:
 
+        // Creates and configures server socket for the service
         std::pair<RAII_FD, struct sockaddr_in> create_server_socket();
+        // Constructs a message with <error_code> and empty payload then calls respond
         void respond_with_error(int clientfd, Status_Code error_code);
+        // Serializes and transmits header and payload defined in msg
         void respond(int clientfd, const Network_Order_Message& msg);
 
+        // Thread function, waits on epoll and reads message from clients
         void accept_requests();
 
-        bool recv_bytes(int clientfd, uint8_t* buffer, std::size_t n);
-        std::optional<Header> create_header(int clientfd, Service_Constants::Header_Buffer* buffer);
-        std::optional<Message> create_message(int clientfd, const Header& h, Service_Constants::Payload_Buffer* buffer);
-
+        // Attempts to read n bytes from clientfd to buffer, returns 0 on success
+        bool recv_bytes(int clientfd, Service_Constants::Buffer* buffer, std::size_t n);
+        // Attempts to create a Header by reading from clientfd, returns empty optional on failure
+        std::optional<Header> create_header(int clientfd, Service_Constants::Buffer* buffer);
+        // Attempts to create a Message by reading from clientfd, returns an empty optional on failure
+        std::optional<Message> create_message(int clientfd, Header h, Service_Constants::Buffer* buffer);
+        // Packages clientfd and msg into job stuct and enqueues it. This transfers ownership of clientfd
         void publish_message(RAII_FD clientfd, Message msg);
-        void handle_client(RAII_FD clientfd, Service_Constants::Payload_Buffer* buffer);
+        // Attempts to read and publish a message from clientfd
+        void handle_client(RAII_FD clientfd, Service_Constants::Buffer* buffer);
 
+        // Thread function, waits on requests queue and services requests based on type
         void process_requests();
 
+        // Responds to client with empty message and OK status
         void ping(const Job& job);
+        // Responds to client with bytes sent/recieved and compression ratio
         void get_stats(const Job& job);
+        // Resets bytes send/recieved and compression ratio to zero
         void reset_stats(const Job& job);
+        // Responds to client with compressed version of their message payload
         void compress(const Job& job);
 
         std::vector<std::thread> listeners;

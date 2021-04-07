@@ -55,9 +55,7 @@ void Service::start() {
 
 }
 
-bool Service::recv_bytes(int clientfd, 
-						 std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* recv_buffer,
-						 std::size_t n) {
+bool Service::recv_bytes(int clientfd, Service_Constants::Buffer* recv_buffer, std::size_t n) {
 	
 	ssize_t num_bytes = 0;
 	std::size_t read_bytes = 0;
@@ -159,8 +157,15 @@ void Service::respond(int clientfd, const Network_Order_Message& msg) {
 
 	IF_VERBOSE (
 		printf("Responding to client %u\n", clientfd);
-		for (const uint8_t byte: write_buffer)
+
+		for (const uint8_t byte: write_buffer) {
 			fprintf(stdout, "%#02x ", byte);
+		}
+		fprintf(stdout, "\n");
+		
+		for (const uint8_t byte: msg.payload) {
+			fprintf(stdout, "%#02x ", byte);
+		}
 		fprintf(stdout, "\n");
 	)
 
@@ -172,7 +177,7 @@ void Service::respond(int clientfd, const Network_Order_Message& msg) {
 		if (num_bytes == -1) {
 			// Write error, abandon client
 			IF_VERBOSE (
-				printf("Error responding to client\n");
+				printf("Error sending header\n");
 			)
 			return;
 		}
@@ -192,7 +197,7 @@ void Service::respond(int clientfd, const Network_Order_Message& msg) {
 		if (num_bytes == -1) {
 			// Write error, abandon client
 			IF_VERBOSE (
-				printf("Error responding to client\n");
+				printf("Error sending payload\n");
 			)
 			return;
 		} 
@@ -202,6 +207,7 @@ void Service::respond(int clientfd, const Network_Order_Message& msg) {
 		this->stats_lock.lock();
 		this->total_bytes_sent += num_bytes;
 		this->stats_lock.unlock();
+		
 	} while (bytes_sent < msg.payload.size());
 
 }

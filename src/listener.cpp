@@ -27,9 +27,9 @@ void add_client(int epollfd, int serverfd,
 
 }
 
-std::optional<Message> Service::create_message(int clientfd, const Header& h,std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* recv_buffer) {
+std::optional<Message> Service::create_message(int clientfd, Header h, Service_Constants::Buffer* buffer) {
 
-	Message msg(h);
+	Message msg(std::move(h));
 
 	if (h.payload_length > 0) {
 		if (h.code != static_cast<uint16_t>(Request_Code::COMPRESS)) {
@@ -38,11 +38,11 @@ std::optional<Message> Service::create_message(int clientfd, const Header& h,std
 		}
 	}
 
-	if (this->recv_bytes(clientfd, recv_buffer, h.payload_length)) {
+	if (this->recv_bytes(clientfd, buffer, h.payload_length)) {
 		return std::nullopt;
 	}
 
-	auto start = recv_buffer->begin();
+	auto start = buffer->begin();
 	auto end = start + h.payload_length;
 	msg.payload.assign(start, end);
 
@@ -50,13 +50,17 @@ std::optional<Message> Service::create_message(int clientfd, const Header& h,std
 }
 
 
-std::optional<Header> Service::create_header(int clientfd, std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* recv_buffer) {
+std::optional<Header> Service::create_header(int clientfd, Service_Constants::Buffer* buffer) {
 
 	assert(clientfd != -1);
 
+	if (this->recv_bytes(clientfd, buffer, Message_Constants::HEADER_SIZE)) {
+		return std::nullopt;
+	}
+
 	Header h;
 	
-	uint8_t* read_head = recv_buffer->data();
+	uint8_t* read_head = buffer->data();
 	
 	h.magic_number = *reinterpret_cast<uint32_t*>(read_head);
 	read_head += sizeof(h.magic_number);
@@ -99,22 +103,17 @@ void Service::publish_message(RAII_FD clientfd, Message msg) {
 
 }
 
-void Service::handle_client(RAII_FD clientfd, 
-							std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* recv_buffer) {
+void Service::handle_client(RAII_FD clientfd, Service_Constants::Buffer* buffer) {
 
 	assert(clientfd.get() != -1);
 
-	if (this->recv_bytes(clientfd.get(), recv_buffer, Message_Constants::HEADER_SIZE)) {
-		return;
-	}
-
-	auto header_opt = this->create_header(clientfd.get(), recv_buffer);
+	auto header_opt = this->create_header(clientfd.get(), buffer);
 	if (!header_opt.has_value()) {
 		return;
 	}
 	Header h = header_opt.value();
 
-	auto msg_opt = this->create_message(clientfd.get(), h, recv_buffer);
+	auto msg_opt = this->create_message(clientfd.get(), h, buffer);
 	if (!msg_opt.has_value()) {
 		return;
 	}
@@ -129,7 +128,7 @@ void Service::accept_requests() {
 	epoll_event epoll_ev, epoll_events[Service_Constants::MAX_EPOLL_EVENTS];
 
 	int num_fds = 0;
-	std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE> recv_buffer;
+	Service_Constants::Buffer buffer;
 	while (true) {
 
 		num_fds = epoll_wait(this->epollfd.get(), epoll_events, Service_Constants::MAX_EPOLL_EVENTS, -1);
@@ -143,6 +142,7 @@ void Service::accept_requests() {
 				IF_VERBOSE (
 					printf("Accepting client\n");
 				)
+
 				add_client(this->epollfd.get(), this->serverfd.get(), &this->addr, &epoll_ev);
 
 			} else {
@@ -153,7 +153,7 @@ void Service::accept_requests() {
 
 				assert(epoll_events[i].data.fd != -1);
 				epoll_ctl(this->epollfd.get(), EPOLL_CTL_DEL, epoll_events[i].data.fd, NULL);
-				handle_client(std::move(RAII_FD(epoll_events[i].data.fd)), &recv_buffer);
+				handle_client(std::move(RAII_FD(epoll_events[i].data.fd)), &buffer);
 
 			}
 		}

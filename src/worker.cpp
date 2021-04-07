@@ -20,6 +20,7 @@ void Service::ping(const Job& job) {
     Network_Order_Message net_msg(h);
     assert(job.clientfd.get() != -1);
     this->respond(job.clientfd.get(), net_msg);
+
 }
 
 void Service::get_stats(const Job& job) {
@@ -46,6 +47,7 @@ void Service::get_stats(const Job& job) {
     Helpers::add_bytes_to_payload(&nbo_compression_ratio, &net_msg.payload);
 
     this->respond(job.clientfd.get(), net_msg);
+
 }
 
 void Service::reset_stats(const Job& job) {
@@ -67,6 +69,7 @@ void Service::reset_stats(const Job& job) {
 
     Network_Order_Message net_msg(h);
     this->respond(job.clientfd.get(), net_msg);
+
 }
 
 void Service::compress(const Job& job) {
@@ -96,6 +99,7 @@ void Service::compress(const Job& job) {
     Network_Order_Message net_msg(h);
     net_msg.payload = payload;
     this->respond(job.clientfd.get(), net_msg);
+
 }
 
 void Service::process_requests() {
@@ -111,7 +115,7 @@ void Service::process_requests() {
 
         Job job = std::move(this->requests.front());
         this->requests.pop();
-        this->requests_lock.unlock();
+        lock.unlock();
 
         IF_VERBOSE (
             printf("Worker recieved job for client %i\n", job.clientfd.get());
@@ -132,4 +136,5 @@ void Service::process_requests() {
         }
 
     }
+    
 }
