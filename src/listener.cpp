@@ -46,12 +46,12 @@ std::optional<Message> Service::create_message(int clientfd, const Header& h,std
 	auto end = start + h.payload_length;
 	msg.payload.assign(start, end);
 
-	PRINT("Constructed message");
-
 	return msg;
 }
 
+
 std::optional<Header> Service::create_header(int clientfd, std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* recv_buffer) {
+
 	assert(clientfd != -1);
 
 	Header h;
@@ -65,8 +65,9 @@ std::optional<Header> Service::create_header(int clientfd, std::array<uint8_t, S
 	h.code = *reinterpret_cast<uint16_t*>(read_head);
 	h.set_host_order();
 
-	// TODO
-	std::cout << h.magic_number << " " << h.payload_length << " " << h.code << std::endl;
+	IF_VERBOSE (
+		printf("Message:\n- magic_number: %lu\n- payload_length: %u\n- code: %u\n", h.magic_number, h.payload_length, h.code);
+	)
 
 	if (h.magic_number != Message_Constants::MAGIC_NUMBER) {
 		this->respond_with_error(clientfd, Status_Code::UNKNOWN_ERROR);
@@ -79,57 +80,26 @@ std::optional<Header> Service::create_header(int clientfd, std::array<uint8_t, S
 	}
 
 	return h;
-
 }
 
-void Service::publish_message(RAII_FD clientfd, std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* recv_buffer) {
+
+void Service::publish_message(RAII_FD clientfd, Message msg) {
+
 	assert(clientfd.get() != -1);
 
-	auto msg_opt = this->create_message(clientfd.get(), recv_buffer);
-	if (!msg_opt.has_value()) {
-		return;
-	}
-
-	// TODO
-	std::cout << "Pushed " << clientfd.get() << std::endl;
-	assert(clientfd.get() != -1);
-
-	Job job = {std::move(msg_opt.value()), std::move(clientfd)};
+	Job job = {std::move(msg), std::move(clientfd)};
 
 	std::lock_guard<std::mutex> guard(this->requests_lock);
 	this->requests.emplace(std::move(job));
 	this->waiting_workers.notify_one();
-	PRINT("Pushed job to queue");
+
+	IF_VERBOSE (
+		printf("Published job to queue\n");
+	)
+
 }
 
-bool Service::recv_bytes(int clientfd, 
-						 std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* recv_buffer,
-						 std::size_t n) {
-	ssize_t num_bytes = 0;
-	std::size_t read_bytes = 0;
-
-	while (read_bytes < n) {
-		num_bytes = recv(clientfd, 
-				    recv_buffer->data() + read_bytes, 
-					Service_Constants::RECV_BUFFER_SIZE - read_bytes, 
-					0);
-		if (num_bytes == -1) {
-			this->respond_with_error(clientfd, Status_Code::UNKNOWN_ERROR);
-			return true;
-		} else if (num_bytes == 0) {
-			// the client closed the connection
-			return true;
-		}
-
-		this->stats_lock.lock();
-		this->total_bytes_recieved += num_bytes;
-		this->stats_lock.unlock();
-	}
-
-	return false;
-}
-
-void Service::handle_client(int epollfd, RAII_FD clientfd, 
+void Service::handle_client(RAII_FD clientfd, 
 							std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* recv_buffer) {
 
 	assert(clientfd.get() != -1);
@@ -150,9 +120,7 @@ void Service::handle_client(int epollfd, RAII_FD clientfd,
 	}
 	Message msg = msg_opt.value();
 
-	PRINT("Recieved message");
-
-	this->publish_message(std::move(clientfd), recv_buffer);
+	this->publish_message(std::move(clientfd), std::move(msg));
 
 }
  
@@ -172,15 +140,20 @@ void Service::accept_requests() {
 		for (int i = 0; i < num_fds; i++) {
 			if (epoll_events[i].data.fd == this->serverfd.get()) {
 
-				PRINT("Add client");
+				IF_VERBOSE (
+					printf("Accepting client\n");
+				)
 				add_client(this->epollfd.get(), this->serverfd.get(), &this->addr, &epoll_ev);
 
 			} else {
 
-				PRINT("Handle client");
+				IF_VERBOSE (
+					printf("Handling client\n");
+				)
+
 				assert(epoll_events[i].data.fd != -1);
 				epoll_ctl(this->epollfd.get(), EPOLL_CTL_DEL, epoll_events[i].data.fd, NULL);
-				handle_client(this->epollfd.get(), std::move(RAII_FD(epoll_events[i].data.fd)), &recv_buffer);
+				handle_client(std::move(RAII_FD(epoll_events[i].data.fd)), &recv_buffer);
 
 			}
 		}

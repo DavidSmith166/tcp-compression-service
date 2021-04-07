@@ -3,7 +3,6 @@
 
 #include <algorithm>
 #include <unistd.h>
-#include <iostream>
 
 struct RAII_FD {
 
@@ -23,7 +22,6 @@ struct RAII_FD {
 
 	~RAII_FD() {
         if (this->fd != -1){
-            std::cout << "Closed " << fd << std::endl;
 		    close(this->fd);
         }
 	}

@@ -14,9 +14,13 @@
 #include <thread>
 #include <unordered_map>
 #include <vector>
-#include <iostream>
 
-#define PRINT(x) std::cout << #x << std::endl
+#ifdef VERBOSE
+#   include <iostream>
+#   define IF_VERBOSE(...) __VA_ARGS__
+#else
+#   define IF_VERBOSE(...)
+#endif
 
 struct Job {
 
@@ -60,14 +64,14 @@ class Service {
 
         void accept_requests();
 
-        bool Service::recv_bytes(int clientfd, 
-                                 std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* recv_buffer,
-                                 std::size_t n);
-        std::optional<Header> Service::create_header(int clientfd, std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* recv_buffer);
-        std::optional<Message> Service::create_message(int clientfd, const Header& h,std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* recv_buffer);
+        bool recv_bytes(int clientfd, 
+                        std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* recv_buffer,
+                        std::size_t n);
+        std::optional<Header> create_header(int clientfd, std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* recv_buffer);
+        std::optional<Message> create_message(int clientfd, const Header& h,std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* recv_buffer);
 
-        void publish_message(RAII_FD clientfd, std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* recv_buffer);
-        void handle_client(int epollfd, RAII_FD clientfd,  
+        void publish_message(RAII_FD clientfd, Message msg);
+        void handle_client(RAII_FD clientfd,  
 						   std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* recv_buffer);
 
         void process_requests();
@@ -96,6 +100,7 @@ class Service {
         int backlog_size;
         std::size_t num_listeners;
         std::size_t num_workers;
+
 };
 
 #endif // SERVICE_H

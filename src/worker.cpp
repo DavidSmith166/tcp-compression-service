@@ -6,12 +6,15 @@
 #include <service.h>
 
 void Service::ping(const Job& job) {
+
+    IF_VERBOSE (
+        printf("Ping response\n");
+    )
+
     Header h;
     h.payload_length = 0;
     h.code = static_cast<uint16_t>(Status_Code::OK);
     h.set_net_order();
-
-    PRINT("Ping response");
 
     Network_Order_Message net_msg(h);
     assert(job.clientfd.get() != -1);
@@ -19,6 +22,11 @@ void Service::ping(const Job& job) {
 }
 
 void Service::get_stats(const Job& job) {
+
+    IF_VERBOSE (
+        printf("Get_Stats response\n");
+    )
+
     Header h;
     h.payload_length = Service_Constants::GET_STATS_PAYLOAD_SIZE;
     h.code = static_cast<uint16_t>(Status_Code::OK);
@@ -36,6 +44,11 @@ void Service::get_stats(const Job& job) {
 }
 
 void Service::reset_stats(const Job& job) {
+
+    IF_VERBOSE (
+        printf("Reset_Stats response\n");
+    )
+
     Header h;
     h.payload_length = 0;
     h.code = static_cast<uint16_t>(Status_Code::OK);
@@ -52,6 +65,11 @@ void Service::reset_stats(const Job& job) {
 }
 
 void Service::compress(const Job& job) {
+
+    IF_VERBOSE (
+        printf("Compress response\n");
+    )
+
     auto payload_opt = Compression::compress(job.msg.payload);  
 
     if (!payload_opt.has_value()) {
@@ -76,7 +94,10 @@ void Service::compress(const Job& job) {
 }
 
 void Service::process_requests() {
-    PRINT("Worker started");
+
+    IF_VERBOSE (
+        printf("Worker started\n");
+    )
 
     while (true) {
 
@@ -87,8 +108,9 @@ void Service::process_requests() {
         this->requests.pop();
         this->requests_lock.unlock();
 
-        PRINT("Worker recieved job");
-        std::cout << "Job " << job.clientfd.get() << std::endl;
+        IF_VERBOSE (
+            printf("Worker recieved job for client %i\n", job.clientfd.get());
+        )
 
         assert(job.clientfd.get() != -1);
 

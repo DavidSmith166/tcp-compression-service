@@ -55,7 +55,46 @@ void Service::start() {
 
 }
 
+bool Service::recv_bytes(int clientfd, 
+						 std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* recv_buffer,
+						 std::size_t n) {
+	
+	ssize_t num_bytes = 0;
+	std::size_t read_bytes = 0;
+
+	while (read_bytes < n) {
+
+		num_bytes = recv(clientfd, recv_buffer->data() + read_bytes, n - read_bytes, 0);
+
+		if (num_bytes == -1) {
+
+			this->respond_with_error(clientfd, Status_Code::UNKNOWN_ERROR);
+			return true;
+
+		} else if (num_bytes == 0) {
+
+			// the client closed the connection
+			return true;
+
+		}
+
+		read_bytes += num_bytes;
+
+		this->stats_lock.lock();
+		this->total_bytes_recieved += num_bytes;
+		this->stats_lock.unlock();
+		
+	}
+
+	IF_VERBOSE (
+		printf("Read Total: %u bytes\n", read_bytes);
+	)
+
+	return false;
+}
+
 std::pair<RAII_FD, struct sockaddr_in> Service::create_server_socket() {
+
 	int serverfd_raw = socket(AF_INET, SOCK_STREAM, 0);
 	if (serverfd_raw == -1) {
 		throw std::runtime_error("Socket creation failed");
@@ -68,10 +107,10 @@ std::pair<RAII_FD, struct sockaddr_in> Service::create_server_socket() {
 	addr.sin_addr.s_addr = INADDR_ANY;
 	addr.sin_port = htons(this->port);
 
-	// int REUSE_TRUE = 1;
-    // if (setsockopt(serverfd.get(), SOL_SOCKET, SO_REUSEPORT, &REUSE_TRUE, sizeof(REUSE_TRUE)) == -1) {
-	// 	throw std::runtime_error("Sockopt failed");
-	// }
+	int REUSE_TRUE = 1;
+    if (setsockopt(serverfd.get(), SOL_SOCKET, SO_REUSEPORT, &REUSE_TRUE, sizeof(REUSE_TRUE)) == -1) {
+		throw std::runtime_error("Sockopt failed");
+	}
 
     if (bind(serverfd.get(), reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == -1) {
 		throw std::runtime_error("Bind failed");
@@ -85,7 +124,10 @@ std::pair<RAII_FD, struct sockaddr_in> Service::create_server_socket() {
 }
 
 void Service::respond_with_error(int clientfd, Status_Code error_code) {
-	PRINT("Responding to client with error");
+
+	IF_VERBOSE (
+		printf("Responding to client with error: %u\n", static_cast<uint16_t>(error_code));
+	)
 
 	assert(clientfd != -1);
 
@@ -100,7 +142,6 @@ void Service::respond_with_error(int clientfd, Status_Code error_code) {
 }
 
 void Service::respond(int clientfd, const Network_Order_Message& msg) {
-	std::cout << "Responding to client " << clientfd << std::endl;
 
 	assert(clientfd != -1);
 
@@ -116,23 +157,51 @@ void Service::respond(int clientfd, const Network_Order_Message& msg) {
 
 	memcpy(write_head, &msg.header.code, sizeof(msg.header.code));
 
-	for (const uint8_t byte: write_buffer)
-		fprintf(stderr, "%#02x ", byte);
-	fprintf(stderr, "\n");
+	IF_VERBOSE (
+		printf("Responding to client %u\n", clientfd);
+		for (const uint8_t byte: write_buffer)
+			fprintf(stdout, "%#02x ", byte);
+		fprintf(stdout, "\n");
+	)
 
+	ssize_t num_bytes = 0;
 	ssize_t bytes_sent = 0;
-	while ((bytes_sent = send(clientfd, write_buffer.data() + bytes_sent, sizeof(write_buffer) - bytes_sent, 0)) != -1) {
+	do {
+		num_bytes = send(clientfd, write_buffer.data() + bytes_sent, Message_Constants::HEADER_SIZE - bytes_sent, 0);
+
+		if (num_bytes == -1) {
+			// Write error, abandon client
+			IF_VERBOSE (
+				printf("Error responding to client\n");
+			)
+			return;
+		}
+
+		bytes_sent += num_bytes;
+
 		this->stats_lock.lock();
-		std::cout << "bytes sent " << bytes_sent << std::endl;
-		this->total_bytes_sent += bytes_sent;
+		this->total_bytes_sent += num_bytes;
 		this->stats_lock.unlock();
 
-		if (bytes_sent == Message_Constants::HEADER_SIZE) {
-			break;
-		}
-	}
+	} while (bytes_sent < Message_Constants::HEADER_SIZE);
+	
+	bytes_sent = 0;
+	do {
+		num_bytes = send(clientfd, msg.payload.data() + bytes_sent, msg.payload.size() - bytes_sent, 0);
 
-	if (bytes_sent < sizeof(write_buffer)) {
-		PRINT("Failed to write");
-	}
+		if (num_bytes == -1) {
+			// Write error, abandon client
+			IF_VERBOSE (
+				printf("Error responding to client\n");
+			)
+			return;
+		} 
+
+		bytes_sent += num_bytes;
+
+		this->stats_lock.lock();
+		this->total_bytes_sent += num_bytes;
+		this->stats_lock.unlock();
+	} while (bytes_sent < msg.payload.size());
+
 }
