@@ -37,8 +37,6 @@ std::optional<std::vector<char>> Compression::compress(const std::vector<char>& 
     
     for (const char c: input) {
 
-        printf("%c ", c);
-
         if (!islower(c)) {
             return std::nullopt;
         }
