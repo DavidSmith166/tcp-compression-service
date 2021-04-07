@@ -37,7 +37,7 @@ namespace Service_Constants
     static constexpr std::size_t DEFAULT_NUM_WORKERS = 4;
     static constexpr std::size_t DEFAULT_BUFFER_SIZE = 32;
 
-    static constexpr uint16_t DEFAULT_PORT = 8000;
+    static constexpr uint16_t DEFAULT_PORT = 4000;
     static constexpr int DEFAULT_BACKLOG_SIZE = 10;
 
     static constexpr int MAX_EPOLL_EVENTS = 10;

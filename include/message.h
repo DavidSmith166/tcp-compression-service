@@ -9,7 +9,7 @@
 
 namespace Message_Constants {
     static constexpr std::size_t HEADER_SIZE = sizeof(uint32_t) + 2 * sizeof(uint16_t);
-    static constexpr std::size_t PAYLOAD_SIZE = 65536;
+    static constexpr std::size_t PAYLOAD_SIZE = 4096; // 4KiB
     static constexpr std::size_t MESSAGE_SIZE = HEADER_SIZE + PAYLOAD_SIZE;
     static constexpr uint32_t MAGIC_NUMBER = 0x53545259;
 } // namespace Message_Constants

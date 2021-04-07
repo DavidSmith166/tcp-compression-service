@@ -83,6 +83,11 @@ std::optional<Header> Service::create_header(int clientfd, Service_Constants::Bu
 		return std::nullopt;
 	}
 
+	if (h.payload_length > Message_Constants::PAYLOAD_SIZE) {
+		this->respond_with_error(clientfd, Status_Code::TOO_LARGE);
+		return std::nullopt;
+	}
+
 	return h;
 }
 
