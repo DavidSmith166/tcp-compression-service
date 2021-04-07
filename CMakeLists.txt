@@ -44,3 +44,11 @@ target_include_directories(tcp-compression-service PRIVATE
                           )
 
 target_link_libraries(tcp-compression-service Threads::Threads)
+
+OPTION(VERBOSE "Enables printing to standard out" OFF)
+
+if (VERBOSE) 
+    target_compile_definitions(tcp-compression-service PRIVATE
+                                VERBOSE
+                              )
+endif()

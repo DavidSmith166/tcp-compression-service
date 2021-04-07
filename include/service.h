@@ -32,6 +32,7 @@ struct Job {
 
 namespace Service_Constants
 {
+
     static constexpr std::size_t DEFAULT_NUM_LISTENERS = 2;
     static constexpr std::size_t DEFAULT_NUM_WORKERS = 4;
     static constexpr std::size_t DEFAULT_BUFFER_SIZE = 32;
@@ -44,6 +45,10 @@ namespace Service_Constants
     static constexpr std::size_t RECV_BUFFER_SIZE = Message_Constants::MESSAGE_SIZE;
 
     static constexpr uint16_t GET_STATS_PAYLOAD_SIZE = 2 * sizeof(uint32_t) + 1;
+
+    using Header_Buffer = std::array<uint8_t, Message_Constants::HEADER_SIZE>;
+    using Payload_Buffer = std::array<uint8_t, Message_Constants::PAYLOAD_SIZE>;
+    
 } // namespace Service_Constants
 
 
@@ -64,15 +69,12 @@ class Service {
 
         void accept_requests();
 
-        bool recv_bytes(int clientfd, 
-                        std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* recv_buffer,
-                        std::size_t n);
-        std::optional<Header> create_header(int clientfd, std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* recv_buffer);
-        std::optional<Message> create_message(int clientfd, const Header& h,std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* recv_buffer);
+        bool recv_bytes(int clientfd, uint8_t* buffer, std::size_t n);
+        std::optional<Header> create_header(int clientfd, Service_Constants::Header_Buffer* buffer);
+        std::optional<Message> create_message(int clientfd, const Header& h, Service_Constants::Payload_Buffer* buffer);
 
         void publish_message(RAII_FD clientfd, Message msg);
-        void handle_client(RAII_FD clientfd,  
-						   std::array<uint8_t, Service_Constants::RECV_BUFFER_SIZE>* recv_buffer);
+        void handle_client(RAII_FD clientfd, Service_Constants::Payload_Buffer* buffer);
 
         void process_requests();
 

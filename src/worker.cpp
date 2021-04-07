@@ -1,5 +1,6 @@
 #include <cassert>
 #include <compression.h>
+#include <helpers.h>
 #include <mutex>
 #include <optional>
 #include <request-code.h>
@@ -35,10 +36,14 @@ void Service::get_stats(const Job& job) {
     Network_Order_Message net_msg(h);
 
     this->stats_lock.lock();
-    net_msg.payload.push_back(htonl(this->total_bytes_recieved));
-    net_msg.payload.push_back(htonl(this->total_bytes_sent));
-    net_msg.payload.push_back(this->compression_ratio);
+    uint32_t nbo_total_bytes_recieved = htonl(this->total_bytes_recieved);
+    uint32_t nbo_total_bytes_sent = htonl(this->total_bytes_sent);
+    uint8_t nbo_compression_ratio = this->compression_ratio;
     this->stats_lock.unlock();
+
+    Helpers::add_bytes_to_payload(&nbo_total_bytes_recieved, &net_msg.payload);
+    Helpers::add_bytes_to_payload(&nbo_total_bytes_sent, &net_msg.payload);
+    Helpers::add_bytes_to_payload(&nbo_compression_ratio, &net_msg.payload);
 
     this->respond(job.clientfd.get(), net_msg);
 }
